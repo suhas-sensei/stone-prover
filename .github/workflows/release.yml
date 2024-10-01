@@ -23,7 +23,8 @@ jobs:
           echo "Running build inside Fedora container"
           docker run -v ${{ github.workspace }}:/workspace -w /workspace fedora:37 /bin/bash -c "
             echo 'fastestmirror=true' >> /etc/dnf/dnf.conf &&
-            dnf clean all &&  # Clear cached metadata to ensure fresh download
+            dnf clean all &&  # Clear cached metadata
+            dnf config-manager --set-disabled fedora-cisco-openh264 fedora-modular &&  # Disable problematic repositories
             dnf update -y &&  # Update the system
             dnf install -y gcc make bazelisk rpm-build &&  # Install dependencies
             chmod +x ./build.sh &&  # Ensure build.sh is executable

@@ -1,46 +1,41 @@
-name: Release Fedora Package
+name: release
 
 on:
   push:
     tags:
-      - "v*.*.*" # Trigger the workflow when a new tag is pushed (e.g., v1.0.0)
+      - "v*.*.*" # Trigger the workflow when a new tag is pushed
 
 jobs:
   build:
-    runs-on: fedora-latest # Use Fedora environment for the build
+    runs-on: ubuntu-latest # Use Ubuntu to run Docker
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2 # Check out the repository code
+        uses: actions/checkout@v2
 
-      - name: Install dependencies
+      - name: Set up Docker and pull Fedora
         run: |
-          sudo dnf update -y
-          sudo dnf install -y rpm-build gcc make bazel  # Install the required packages to build RPMs
+          echo "Pulling Fedora image"
+          docker pull fedora:latest  # Pull Fedora Docker image
 
-      - name: Make build.sh executable
-        run: chmod +x ./build.sh # Ensure build.sh is executable
-
-      - name: Build using build.sh
-        run: ./build.sh # Run the build script to compile your project
-
-      - name: Prepare RPM directories
-        run: mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS} # Create the necessary directories for RPM build
-
-      - name: Copy stone-prover.spec to SPECS
-        run: cp ./stone-prover.spec ~/rpmbuild/SPECS/ # Copy the spec file to the SPECS directory
-
-      - name: Package RPM
+      - name: Run build inside Fedora container
         run: |
-          rpmbuild -ba ~/rpmbuild/SPECS/stone-prover.spec \
-            --define "_topdir $HOME/rpmbuild" \  # Define the top directory for the build
-            --define "version ${GITHUB_REF#refs/tags/}" \  # Extract version from the GitHub tag
-            --define "arch x86_64"  # Define the architecture
+          echo "Running build inside Fedora container"
+          docker run -v ${{ github.workspace }}:/workspace -w /workspace fedora:latest /bin/bash -c "
+            dnf update -y &&
+            dnf install -y gcc make bazelisk rpm-build &&
+            chmod +x ./build.sh &&
+            ./build.sh &&
+            mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS} &&
+            cp ./stone-prover.spec ~/rpmbuild/SPECS/ &&
+            rpmbuild -ba ~/rpmbuild/SPECS/stone-prover.spec --define '_topdir $HOME/rpmbuild' --define 'version ${GITHUB_REF#refs/tags/}' --define 'arch x86_64'
+          "
 
-      - name: Verify RPM creation
-        run: ls -la ~/rpmbuild/RPMS/x86_64/ # List the RPM files to verify the creation
+      - name: Verify RPM
+        run: |
+          docker run fedora:latest ls -la ~/rpmbuild/RPMS/x86_64/  # List RPM to verify it was created
 
       - name: Upload RPM to GitHub release
-        uses: softprops/action-gh-release@v2 # Action to create a GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          files: ~/rpmbuild/RPMS/x86_64/*.rpm # Upload the RPM to the release
+          files: ~/rpmbuild/RPMS/x86_64/*.rpm

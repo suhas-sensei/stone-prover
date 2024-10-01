@@ -24,7 +24,7 @@ jobs:
           docker run -v ${{ github.workspace }}:/workspace -w /workspace fedora:37 /bin/bash -c "
             echo 'fastestmirror=true' >> /etc/dnf/dnf.conf &&
             dnf clean all &&  # Clear cached metadata
-            dnf install -y dnf-plugins-core gcc make rpm-build &&  # Install necessary tools
+            dnf install -y dnf-plugins-core gcc make rpm-build git &&  # Install git along with necessary tools
             dnf config-manager --set-disabled fedora-cisco-openh264 fedora-modular &&  # Disable problematic repositories
             dnf update -y &&  # Update the system
             # Download and install Bazelisk manually

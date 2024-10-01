@@ -16,7 +16,7 @@ jobs:
       - name: Set up Docker and pull Fedora
         run: |
           echo "Pulling Fedora image"
-          docker pull fedora:37  # Use Fedora 37 to avoid issues with latest
+          docker pull fedora:37  # Use Fedora 37
 
       - name: Run build inside Fedora container
         run: |
@@ -24,6 +24,7 @@ jobs:
           docker run -v ${{ github.workspace }}:/workspace -w /workspace fedora:37 /bin/bash -c "
             echo 'fastestmirror=true' >> /etc/dnf/dnf.conf &&
             dnf clean all &&  # Clear cached metadata
+            dnf install -y dnf-plugins-core &&  # Install dnf-plugins-core for config-manager
             dnf config-manager --set-disabled fedora-cisco-openh264 fedora-modular &&  # Disable problematic repositories
             dnf update -y &&  # Update the system
             dnf install -y gcc make bazelisk rpm-build &&  # Install dependencies

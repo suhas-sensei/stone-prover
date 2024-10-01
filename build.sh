@@ -1,27 +1,27 @@
 #!/bin/bash
 
+echo "Starting build process..."
+
 # Check for target architecture
 if [ -z "$TARGET_ARCH" ]; then
     echo "TARGET_ARCH not set. Defaulting to x86_64"
-    TARGET_ARCH="x86_64"  # Default to x86_64 if not set
+    TARGET_ARCH="x86_64"
 fi
 
-# Set Bazel architecture
-if [ "$TARGET_ARCH" == "x86_64" ]; then
-    arch="x86_64"
-elif [ "$TARGET_ARCH" == "arm64" ]; then
-    arch="arm64"
+echo "Building for architecture: $TARGET_ARCH"
+
+# Run Bazel build
+echo "Running Bazel build..."
+bazelisk build --cpu=$TARGET_ARCH //...
+
+# Run tests with verbose output to debug any issues
+echo "Running Bazel tests with verbose output..."
+bazelisk test --cpu=$TARGET_ARCH --test_output=all //...
+
+# Check the result of the Bazel test
+if [ $? -eq 0 ]; then
+    echo "Build and tests completed successfully."
 else
-    echo "Unknown architecture: $TARGET_ARCH"
+    echo "Build or tests failed."
     exit 1
 fi
-
-echo "Building for architecture: $arch"
-
-# Use bazelisk to build for the specified architecture
-bazelisk build --cpu=$arch //...
-
-# Optionally, run tests
-bazelisk test --cpu=$arch //...
-
-# Continue with other build steps, if needed

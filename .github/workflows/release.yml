@@ -25,7 +25,7 @@ jobs:
             echo 'fastestmirror=true' >> /etc/dnf/dnf.conf &&
             dnf clean all &&  # Clear cached metadata
             # Install necessary development tools and libraries
-            dnf install -y dnf-plugins-core gcc gcc-c++ make rpm-build git ncurses-devel libstdc++-devel clang llvm llvm-libs &&
+            dnf install -y dnf-plugins-core gcc gcc-c++ make rpm-build git ncurses-devel libstdc++-devel clang llvm llvm-libs python3 python3-pytest &&
             dnf config-manager --set-disabled fedora-cisco-openh264 fedora-modular &&  # Disable problematic repositories
             dnf update -y &&  # Update the system
             # Download and install Bazelisk manually

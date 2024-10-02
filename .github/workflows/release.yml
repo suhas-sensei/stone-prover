@@ -3,7 +3,7 @@ name: Release Fedora Package
 on:
   push:
     tags:
-      - 'v*..'
+      - 'v*'
 
 jobs:
   build:

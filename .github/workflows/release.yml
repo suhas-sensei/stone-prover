@@ -3,48 +3,69 @@ name: release
 on:
   push:
     tags:
-      - "v*.*.*" # Trigger the workflow when a new tag is pushed
+      - 'v*.*.*'  # Trigger the workflow when a new tag is pushed
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Use Ubuntu to run Docker
+    runs-on: ubuntu-latest  # Use Ubuntu to run Docker
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Set up Docker and pull Fedora
-        run: |
-          echo "Pulling Fedora image"
-          docker pull fedora:37  # Use Fedora 37
+    - name: Set up Docker and pull Fedora
+      run: |
+        echo "Pulling Fedora image"
+        docker pull fedora:37  # Use Fedora 37
 
-      - name: Run build inside Fedora container
-        run: |
-          echo "Running build inside Fedora container"
-          docker run -v ${{ github.workspace }}:/workspace -w /workspace fedora:37 /bin/bash -c "
-            echo 'fastestmirror=true' >> /etc/dnf/dnf.conf &&
-            dnf clean all &&  # Clear cached metadata
-            # Install necessary development tools and libraries
-            dnf install -y dnf-plugins-core gcc gcc-c++ make rpm-build git ncurses-devel libstdc++-devel clang llvm llvm-libs python3 python3-pytest &&
-            dnf config-manager --set-disabled fedora-cisco-openh264 fedora-modular &&  # Disable problematic repositories
-            dnf update -y &&  # Update the system
-            # Download and install Bazelisk manually
-            curl -LO https://github.com/bazelbuild/bazelisk/releases/download/v1.11.0/bazelisk-linux-amd64 &&
-            mv bazelisk-linux-amd64 /usr/local/bin/bazelisk &&
-            chmod +x /usr/local/bin/bazelisk &&
-            # Continue with the rest of the build
-            chmod +x ./build.sh &&  # Ensure build.sh is executable
-            ./build.sh &&  # Run the build script
-            mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS} &&  # Create RPM build directories
-            cp ./stone-prover.spec ~/rpmbuild/SPECS/ &&  # Copy the spec file
-            rpmbuild -ba ~/rpmbuild/SPECS/stone-prover.spec --define '_topdir $HOME/rpmbuild' --define 'version ${GITHUB_REF#refs/tags/}' --define 'arch x86_64'  # Build the RPM
-          "
+    - name: Debug before building inside Fedora container
+      run: |
+        echo "Debugging before build process starts..."
+        echo "Checking for stone-prover.spec file..."
+        ls -la ./
+        if [ ! -f ./stone-prover.spec ]; then
+          echo 'Error: stone-prover.spec not found!'
+          exit 1
+        else
+          echo 'stone-prover.spec found!'
+        fi
+        echo "Verifying permissions on build.sh..."
+        ls -la ./build.sh
+        chmod +x ./build.sh
+        echo "Permissions set, continuing..."
 
-      - name: Verify RPM
-        run: |
-          docker run fedora:37 ls -la ~/rpmbuild/RPMS/x86_64/  # List RPM to verify it was created
+    - name: Run build inside Fedora container
+      run: |
+        echo "Running build inside Fedora container"
+        docker run -v ${{ github.workspace }}:/workspace -w /workspace fedora:37 /bin/bash -c "
+          echo 'fastestmirror=true' >> /etc/dnf/dnf.conf &&
+          dnf clean all &&  # Clear cached metadata
+          # Install necessary development tools and libraries
+          dnf install -y dnf-plugins-core gcc gcc-c++ make rpm-build git ncurses-devel libstdc++-devel clang llvm llvm-libs python3 python3-pytest &&
+          dnf config-manager --set-disabled fedora-cisco-openh264 fedora-modular &&  # Disable problematic repositories
+          dnf update -y &&  # Update the system
+          # Download and install Bazelisk manually
+          curl -LO https://github.com/bazelbuild/bazelisk/releases/download/v1.11.0/bazelisk-linux-amd64 &&
+          mv bazelisk-linux-amd64 /usr/local/bin/bazelisk &&
+          chmod +x /usr/local/bin/bazelisk &&
+          # Ensure the .spec file is present
+          if [ ! -f ./stone-prover.spec ]; then
+            echo 'Error: stone-prover.spec not found!'
+            exit 1
+          fi
+          # Continue with the rest of the build
+          chmod +x ./build.sh &&  # Ensure build.sh is executable
+          ./build.sh &&  # Run the build script
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS} &&  # Create RPM build directories
+          cp ./stone-prover.spec ~/rpmbuild/SPECS/ &&  # Copy the spec file to rpmbuild
+          rpmbuild -ba ~/rpmbuild/SPECS/stone-prover.spec --define '_topdir $HOME/rpmbuild' --define 'version ${GITHUB_REF#refs/tags/}' --define 'arch x86_64'  # Build the RPM
+        "
 
-      - name: Upload RPM to GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ~/rpmbuild/RPMS/x86_64/*.rpm # Upload the built RPM to the release
+    - name: Verify RPM
+      run: |
+        docker run fedora:37 ls -la ~/rpmbuild/RPMS/x86_64/  # List RPM to verify it was created
+
+    - name: Upload RPM to GitHub release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ~/rpmbuild/RPMS/x86_64/*.rpm  # Upload the built RPM to the release

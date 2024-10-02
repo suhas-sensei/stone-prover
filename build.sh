@@ -1,27 +1,49 @@
 #!/bin/bash
+# Fix dependencies
+set -o xtrace
+set -e
 
-echo "Starting build process..."
+# Detect OS and architecture
+os=$(uname | tr '[:upper:]' '[:lower:]')
+arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
 
-# Check for target architecture
-if [ -z "$TARGET_ARCH" ]; then
-    echo "TARGET_ARCH not set. Defaulting to x86_64"
-    TARGET_ARCH="x86_64"
-fi
+# Fedora-specific installation
+if [ "$os" == "linux" ] && [ -f /etc/fedora-release ]; then
+    echo "Detected Fedora"
 
-echo "Building for architecture: $TARGET_ARCH"
+    # Clean and update Fedora packages
+    sudo dnf clean all
+    sudo dnf update -y
 
-# Run Bazel build
-echo "Running Bazel build..."
-bazelisk build --cpu=$TARGET_ARCH //...
+    # Install dependencies
+    sudo dnf install -y clang gcc-c++ libstdc++-devel libcxx libcxx-devel \
+        ncurses-compat-libs elfutils-devel gmp-devel python3-devel wget git
 
-# Run tests with verbose output to debug any issues
-echo "Running Bazel tests with verbose output..."
-bazelisk test --cpu=$TARGET_ARCH --test_output=all //...
+    # Install Python dependencies
+    pip install cpplint pytest numpy sympy==1.12.1 cairo-lang==0.12.0
 
-# Check the result of the Bazel test
-if [ $? -eq 0 ]; then
-    echo "Build and tests completed successfully."
+    # Install Bazelisk (Bazel wrapper)
+    wget "https://github.com/bazelbuild/bazelisk/releases/download/v1.20.0/bazelisk-linux-amd64"
+    chmod 755 "bazelisk-linux-amd64"
+    sudo mv "bazelisk-linux-amd64" /bin/bazelisk
+
 else
-    echo "Build or tests failed."
+    echo "$os is either not Fedora or not supported."
     exit 1
 fi
+
+# Clone the stone-prover repository
+git clone https://github.com/baking-bad/stone-prover.git /tmp/stone-prover
+
+# Move into the stone-prover directory
+cd /tmp/stone-prover || exit
+
+# Build with Bazel, specifying C++17 compatibility
+bazelisk build --cpu=$arch //... --cxxopt='-std=c++17'
+
+# Run tests
+bazelisk test --cpu=$arch //... --cxxopt='-std=c++17'
+
+# Create symbolic links for the built binaries
+ln -s /tmp/stone-prover/build/bazelbin/src/starkware/main/cpu/cpu_air_prover /usr/local/bin/cpu_air_prover
+ln -s /tmp/stone-prover/build/bazelbin/src/starkware/main/cpu/cpu_air_verifier /usr/local/bin/cpu_air_verifier

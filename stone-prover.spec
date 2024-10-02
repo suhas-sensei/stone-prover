@@ -1,27 +1,34 @@
 Name: stone-prover
-Version: %{version}
+Version: 1.0.0
 Release: 1%{?dist}
-Summary: Prover package for Fedora
+Summary: High-performance proof verification tool
 
 License: MIT
-URL: https://github.com/dipdup-io/stone-prover
-Source0: %{name}-%{version}.tar.gz
+BuildArch: x86_64
 
-BuildRequires: gcc, make
-Requires: bazel
+# Build dependencies
+BuildRequires: gcc, make, bazelisk, rpm-build, python3-pip
+Requires: libtinfo5, libdw-dev, libgmp3-dev, python3, python3-numpy, python3-sympy
 
 %description
-Stone-prover is a formal prover.
+Stone-prover is a high-performance proof verification tool.
 
 %prep
-%setup -q
+git clone https://github.com/baking-bad/stone-prover.git /tmp/stone-prover
 
 %build
-make %{?_smp_mflags}
+cd /tmp/stone-prover
+bazelisk build --cpu=%{_arch} //...
 
 %install
-rm -rf %{buildroot}
-make install DESTDIR=%{buildroot}
+mkdir -p %{buildroot}/usr/local/bin
+install -m 755 /tmp/stone-prover/build/bazelbin/src/starkware/main/cpu/cpu_air_prover %{buildroot}/usr/local/bin/cpu_air_prover
+install -m 755 /tmp/stone-prover/build/bazelbin/src/starkware/main/cpu/cpu_air_verifier %{buildroot}/usr/local/bin/cpu_air_verifier
 
 %files
-/usr/local/bin/prover
+/usr/local/bin/cpu_air_prover
+/usr/local/bin/cpu_air_verifier
+
+%changelog
+* Wed Oct 02 2024 Your Name <youremail@example.com> - 1.0.0-1
+- Initial RPM package for stone-prover.
